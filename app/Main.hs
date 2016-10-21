@@ -13,7 +13,7 @@ import qualified Data.Text as T
 import qualified Data.List as L
 import           Hakyll.Web.Html (stripTags)
 
-fpath = "unlabeledTrainData.tsv.zip"
+fpath = "data/unlabeledTrainData.tsv.zip"
 
 main :: IO ()
 main = do
