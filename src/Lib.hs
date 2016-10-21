@@ -1,5 +1,7 @@
+{-# LANGUAGE FlexibleContexts #-}
+
 module Lib
-    ( 
+    (
       VocabWord
     , VocabSentence
     , Vocabulary
@@ -11,16 +13,26 @@ module Lib
 import qualified Data.Map.Strict as M
 import qualified Data.Map.Strict.Merge as MM
 import qualified Data.Text as T
+import           System.Log.Simple
 
 type VocabWord = T.Text
 type VocabSentence = [VocabWord]
 
 type Vocabulary = M.Map VocabWord Int
-  
-scan_vocab :: (Foldable f) => f VocabSentence -> Vocabulary
-scan_vocab sentences = foldr (addWord) empty_vocab (concat sentences)
+
+sentenceToVocabulary :: VocabSentence -> Vocabulary
+sentenceToVocabulary = foldr merge_vocab empty_vocab . (fmap mapWord)
   where
-    addWord word = M.insertWith (+) word 1
+    mapWord word = M.singleton word 1
+
+{-scan_vocab :: (Foldable f) => f VocabSentence -> Vocabulary-}
+scan_vocab sentences = do
+  debug "collecting all words and their counts"
+  return $ foldr mapWord empty_vocab $ concat sentences
+    where
+      mapWord word = M.insertWith (+) word 1
+-- fmap $ foldr (liftM2 merge_vocab) (return empty_vocab) $ fmap (fmap
+-- scan_vocab) lin
 
 merge_vocab :: Vocabulary -> Vocabulary -> Vocabulary
 merge_vocab = MM.merge MM.preserveMissing MM.preserveMissing (MM.zipWithMatched mergeWords)

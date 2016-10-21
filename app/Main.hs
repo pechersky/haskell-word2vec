@@ -16,18 +16,23 @@ import           Hakyll.Web.Html (stripTags)
 fpath = "unlabeledTrainData.tsv.zip"
 
 main :: IO ()
-main = withArchive fpath $ do
+main = do
+  corpus <- getLines
+    {-.| CL.mapM scan_vocab-}
+    {-.| CL.fold merge_vocab empty_vocab-}
+  (liftIO . print) $ corpus
+  return ()
+
+getLines = withArchive fpath $ do
   n:_ <- entryNames
-  corpus <- sourceEntry n -- [[VocabSentence]]
-     $ CT.decode CT.utf8
+  lines <- sourceEntry n
+    $ CT.decode CT.utf8
     .| firstLines 30
     .| columnex
     .| transf
-    .| CL.map scan_vocab
-    .| CL.fold merge_vocab empty_vocab
-  (liftIO . print) $ corpus
-  return ()
-    
+    .| CL.consume
+  return lines
+
 firstLines :: Monad m => Int -> Conduit Text m Text
 firstLines n = CT.lines
     =$ (CL.drop 1 >> CL.map id)
@@ -38,17 +43,17 @@ columnex = CL.map $ second
   where second = fmap (\(_:x:_) -> x) $ T.splitOn "\t"
 
 -- transf = CL.map $ (map L.head) . L.group . L.sort . T.unpack . (foldl1 T.append) . concat . (fmap T.words) . sentences . T.toLower . clean . stripTagsText
--- (fmap (VocabSentence . (fmap VocabWord))) .   
-  
+-- (fmap (VocabSentence . (fmap VocabWord))) .
+
 transf :: Monad m => Conduit Text m [VocabSentence]
 transf = CL.map $ (fmap T.words) . sentences . T.toLower . removeapostrophe . clean . stripTagsText
-  where 
-    sentences = T.split (\x -> any id $ fmap (x==) sentenceTerms)
+  where
+    sentences = T.split (\x -> or $ fmap (x==) sentenceTerms)
     sentenceTerms = ['.', '?', '!']
     clean = flip (foldr (\x -> T.replace x (T.pack " "))) (fmap T.pack punctuation)
     punctuation = ["\"", "\\", "/", "-", ",", ":", ";", "(", ")", "&", "%"]
     removeapostrophe = flip (foldr (\x -> T.replace x (T.pack ""))) (fmap T.pack ["'"])
-    stripTagsText = T.pack . stripTags . T.unpack 
+    stripTagsText = T.pack . stripTags . T.unpack
 
 printSink :: (Show a, MonadIO m) => Sink a m ()
 printSink = CL.mapM_ (liftIO . print)
